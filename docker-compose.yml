@@ -1,0 +1,15 @@
+version: "3"
+services:
+  app:
+    image: ros2robotik:latest
+    container_name: ros2robotik
+    working_dir: /linefollower
+    volumes:
+      - .:/linefollower
+      - /tmp/argus_socket:/tmp/argus_socket
+    ports:
+      - "8888:8888/udp"
+      - "80:80"
+      - "8022:22"
+    stdin_open: true
+    tty: true
