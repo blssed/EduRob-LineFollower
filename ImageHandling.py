@@ -1,7 +1,6 @@
 import cv2 as cv
 import numpy as np
-import GeomHelper as geom
-import ROI
+from Util import GeomHelper as geom, ROI
 import config as conf
 
 Roi = ROI.ROI()
