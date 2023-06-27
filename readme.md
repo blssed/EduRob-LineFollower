@@ -1,1 +1,1 @@
-This project lets a EduRob follow a white line
+This project lets EduRob follow a white line

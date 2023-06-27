@@ -1,20 +1,44 @@
 import ImageHandling as imgHandler
-import time
-import numpy as np
 import cv2 as cv
-import config as conf
+import rclpy
+from geometry_msgs.msg import Twist
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from multiprocessing import Process
 
+rclpy.init()
+node = rclpy.create_node('line_follower')
+pub = node.create_publisher(Twist, 'cmd_vel', 10)
+twist = Twist()
+
+lastTurn = 'right'
+
+moveBindings = {
+    'driveForward': (1, 0, 0, 0),
+    'driveLeft': (1, 0, 0, 1),
+    'driveRight': (1, 0, 0, -1),
+    'turnLeft': (0, 0, 0, 2),
+    'turnRight': (0, 0, 0, -2)
+}
+
 
 def gstreamer_pipeline(
-        capture_width=1920,
-        capture_height=1080,
+        capture_width=1280,
+        capture_height=720,
         display_width=820,
         display_height=616,
-        framerate=21,
-        flip_method=2,
+        framerate=10,
+        flip_method=0,
 ):
+    """
+    Generates a GStreamer pipeline string for capturing video using the NVIDIA Jetson platform.
+    :param capture_width: Width of the captured video.
+    :param capture_height: Height of the captured video.
+    :param display_width: Width of the displayed video.
+    :param display_height: Height of the displayed video.
+    :param framerate: Frame rate of the captured video.
+    :param flip_method: Flip method for the captured video.
+    :return: GStreamer pipeline string.
+    """
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
@@ -36,99 +60,124 @@ def gstreamer_pipeline(
 
 
 def process_camera_input():
+    """
+    Processes camera input by capturing video and passing each frame to the `follow` function.
+    :return: none
+    """
     cap = cv.VideoCapture(gstreamer_pipeline(), cv.CAP_GSTREAMER)
     while cap.isOpened():
         ret, img = cap.read()
         follow(img)
-        print("Handling image")
 
 
 def start_server():
+    """
+    Starts an HTTP server that serves requests forever.
+    """
     httpd.serve_forever()
     print("Server started")
 
 
-def find_line(side):
-    print("Finding line")
-    if side == 0:
-        return None, None
-
-    for i in range(0, conf.findTurnAttempts):
-        turn(side, conf.findTurnStep)
-        angle, shift = imgHandler.handle_pic()
-        if angle is not None:
-            return angle, shift
-
-    return None, None
-
-
-def turn(r, t):
-    print("Turning, r: " + r + " t: " + t)
-    # todo: do a turn based on r and t
-
-
-def check_shift_turn(angle, shift):
-    turn_state = 0
-    if angle < conf.turnAngle or angle > 180 - conf.turnAngle:
-        turn_state = np.sign(90 - angle)
-
-    shift_state = 0
-    if abs(shift) > conf.maxShift:
-        shift_state = np.sign(shift)
-    return turn_state, shift_state
+# turn 45° and check again
+def find_line():
+    """
+    Finds the line to follow based on the value of the `lastTurn` variable.
+    :return: No return, only publish to the ROS2 topic
+    """
+    global lastTurn
+    print(f"Finding line to the {lastTurn}")
+    if lastTurn == 'right':
+        x = moveBindings['turnRight'][0]
+        y = moveBindings['turnRight'][1]
+        z = moveBindings['turnRight'][2]
+        th = moveBindings['turnRight'][3]
+    else:
+        x = moveBindings['turnLeft'][0]
+        y = moveBindings['turnLeft'][1]
+        z = moveBindings['turnLeft'][2]
+        th = moveBindings['turnLeft'][3]
 
 
-def get_turn(turn_state, shift_state):
-    turn_dir = 0
-    turn_val = 0
-    if shift_state != 0:
-        turn_dir = shift_state
-        turn_val = conf.shiftStep if shift_state != turn_state else conf.turnStep
-    elif turn_state != 0:
-        turn_dir = turn_state
-        turn_val = conf.turnStep
-    return turn_dir, turn_val
+    twist = Twist()
+    twist.linear.x = x * 0.1
+    twist.linear.y = y * 0.1
+    twist.linear.z = z * 0.1
+    twist.angular.x = 0.0
+    twist.angular.y = 0.0
+    twist.angular.z = th * 0.2
+    pub.publish(twist)
 
 
 def follow(image):
-    # todo: drive forward
-    print("Driving forward")
+    """
+    Processes the image and determines the movement commands for the robot to follow a line.
+    :param image: The input image to process.
+    :return: No return, only publish to the ROS2 topic
+    """
+    global lastTurn
+    x = 0
+    y = 0
+    z = 0
+    th = 0
 
     try:
-        last_turn = 0
-        last_angle = 0
-
-        for i in range(0, conf.iterations):
-            a, shift = imgHandler.handle_pic(image)
-            if a is None:
-                if last_turn != 0:
-                    a, shift = find_line(last_turn)
-                    if a is None:
-                        break
-                elif last_angle != 0:
-                    turn(np.sign(90 - last_angle), conf.turnStep)
-                    continue
-                else:
-                    break
-
-            turn_state, shift_state = check_shift_turn(a, shift)
-
-            turn_dir, turn_val = get_turn(turn_state, shift_state)
-
-            if turn_dir != 0:
-                turn(turn_dir, turn_val)
-                last_turn = turn_dir
-            else:
-                time.sleep(conf.runStraight)
-                last_turn = 0
-            last_angle = a
+        angle, shift = imgHandler.handle_pic(image)
+        if angle is None or angle is 0:
+            # try to find a line
+            find_line()
+            return
+        elif 95 < angle <= 105:
+            print(f"Driving right, Angle: {angle}")
+            lastTurn = 'right'
+            x = moveBindings['driveRight'][0]
+            y = moveBindings['driveRight'][1]
+            z = moveBindings['driveRight'][2]
+            th = moveBindings['driveRight'][3]
+        elif 75 <= angle < 85:
+            print(f"Driving left, Angle: {angle}")
+            lastTurn = 'left'
+            x = moveBindings['driveLeft'][0]
+            y = moveBindings['driveLeft'][1]
+            z = moveBindings['driveLeft'][2]
+            th = moveBindings['driveLeft'][3]
+        elif 85 <= angle <= 95:
+            print(f"Driving forward, Angle: {angle}")
+            x = moveBindings['driveForward'][0]
+            y = moveBindings['driveForward'][1]
+            z = moveBindings['driveForward'][2]
+            th = moveBindings['driveForward'][3]
+        elif angle < 75:
+            print(f"Turning left, Angle: {angle}")
+            lastTurn = 'left'
+            x = moveBindings['turnLeft'][0]
+            y = moveBindings['turnLeft'][1]
+            z = moveBindings['turnLeft'][2]
+            th = moveBindings['turnLeft'][3]
+        elif angle > 105:
+            print(f"Turning right, Angle: {angle}")
+            lastTurn = 'right'
+            x = moveBindings['turnRight'][0]
+            y = moveBindings['turnRight'][1]
+            z = moveBindings['turnRight'][2]
+            th = moveBindings['turnRight'][3]
 
     finally:
-        print("Standing still")
-        # todo: stay still
+        twist = Twist()
+        twist.linear.x = x * 0.1
+        twist.linear.y = y * 0.1
+        twist.linear.z = z * 0.1
+        twist.angular.x = 0.0
+        twist.angular.y = 0.0
+        twist.angular.z = th * 0.2
+        pub.publish(twist)
 
 
 def run_in_parallel(*fns):
+    """
+    Runs the given functions in parallel using separate processes.
+    :param fns: Variable-length argument list of functions to execute.
+    :return: none
+    """
     proc = []
     for fn in fns:
         p = Process(target=fn)
@@ -139,5 +188,5 @@ def run_in_parallel(*fns):
 
 
 if __name__ == '__main__':
-    httpd = HTTPServer(('localhost', 80), SimpleHTTPRequestHandler)
+    httpd = HTTPServer(('0.0.0.0', 80), SimpleHTTPRequestHandler)
     run_in_parallel(start_server, process_camera_input)

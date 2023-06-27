@@ -1,7 +1,10 @@
-version: "3"
+version: "2.3"
 services:
   app:
-    image: ros2robotik:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
     container_name: ros2robotik
     working_dir: /linefollower
     volumes:
@@ -10,6 +13,5 @@ services:
     ports:
       - "8888:8888/udp"
       - "80:80"
-      - "8022:22"
     stdin_open: true
     tty: true

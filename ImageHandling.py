@@ -10,69 +10,72 @@ imgWritecounter = 0
 
 
 def write_img(image, name):
+    """
+    Writes an image to disk with a given name.
+    :param image: An array representing the image.
+    :param name: The name of the image file.
+    :return: none
+    """
     global imgWritecounter
     if imgWritecounter % 30 == 0:
         imgWritecounter = 0
-        written = cv.imwrite("/linefollower" + name + ".jpeg", image)
-        if written:
-            print("Wrote image")
+        if image is not None:
+            cv.imwrite("/linefollower/" + name + ".jpeg", image)
         else:
             print("Error writing image")
 
 
 def balance_pic(image):
-    global T
-    ret = None
+    """
+    Balances the picture by adjusting the threshold value to optimize the percentage of white pixels.
+    :param image: An array representing the input image.
+    :return: The processed image after balancing or None if no balance is achieved.
+    """
+    threshold = conf.threshold
+    processed_image = None
     direction = 0
-    for i in range(0, conf.iterations):
 
-        rc, gray = cv.threshold(image, T, 255, 0)
+    for _ in range(conf.iterations):
+        _, gray = cv.threshold(image, threshold, 255, 0)
         crop = Roi.crop_roi(gray)
 
         non_white = cv.countNonZero(crop)
-        perc = int(100 * non_white / Roi.get_area())
+        percentage_white = int(100 * non_white / Roi.get_area())
 
-        if perc > conf.maxWhite:
-            if T > conf.maxThreshold:
+        if percentage_white > conf.maxWhite:
+            if threshold > conf.maxThreshold:
                 break
             if direction == -1:
-                ret = crop
+                processed_image = crop
                 break
-            T += 10
+            threshold += 10
             direction = 1
-        elif perc < conf.minWhite:
-            if T < conf.minThreshold:
+        elif percentage_white < conf.minWhite:
+            if threshold < conf.minThreshold:
                 break
             if direction == 1:
-                ret = crop
+                processed_image = crop
                 break
-
-            T -= 10
+            threshold -= 10
             direction = -1
         else:
-            ret = crop
+            processed_image = crop
             break
-    return ret
 
-
-def adjust_brightness(img, level):
-    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-    b = np.mean(img[:, :, 2])
-    if b == 0:
-        return img
-    r = level / b
-    c = img.copy()
-    c[:, :, 2] = c[:, :, 2] * r
-    return cv.cvtColor(c, cv.COLOR_HSV2BGR)
+    return processed_image
 
 
 def prepare_pic(image):
+    """
+    Prepares the input image by converting it to grayscale, applying Gaussian blur, and performing image balancing.
+    :param image: An array representing the input image.
+    :return: A tuple containing the processed image after balancing (or None if no balance is achieved), width, and height of the image.
+    """
     global Roi
-    global T
     height, width = image.shape[:2]
 
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    blurred = cv.GaussianBlur(gray, (9, 9), 0)
+    # gray and blurr chained
+    blurred = cv.GaussianBlur(cv.cvtColor(image, cv.COLOR_BGR2GRAY), (9, 9), 0)
 
     write_img(blurred, "grayed")
 
@@ -83,10 +86,16 @@ def prepare_pic(image):
 
 
 def find_main_countour(image):
-    im2, cnts, hierarchy = cv.findContours(image, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
+    """
+    Finds the main contour in the input image and returns the contour and the ordered bounding box.
+    :param image: An array representing the input image.
+    :return:  A tuple containing the main contour (or None if not found)
+        and the ordered bounding box (or None if contour is None).
+    """
+    conts, hierarchy = cv.findContours(image, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
     contour = None
-    if cnts is not None and len(cnts) > 0:
-        contour = max(cnts, key=cv.contourArea)
+    if conts is not None and len(conts) > 0:
+        contour = max(conts, key=cv.contourArea)
 
     if contour is None:
         return None, None
@@ -99,9 +108,16 @@ def find_main_countour(image):
 
 
 def handle_pic(image):
+    """
+    Handles the input image by performing various operations, including writing images, cropping, finding contours,
+    calculating angles and shifts, and drawing visualizations.
+    :param image: An array representing the input image.
+    :return: A tuple containing the calculated angle (or None if not available)
+        and the calculated shift (or None if not available).
+    """
     global imgWritecounter
-    write_img(image, "unhandled")
     imgWritecounter += 1
+    write_img(image, "unhandled")
     if image is None:
         print("Image is empty")
         return None, None
@@ -116,13 +132,14 @@ def handle_pic(image):
     p1, p2 = geom.calc_box_vector(box)
     if p1 is None:
         return None, None
-
     angle = geom.get_vert_angle(p1, p2, w, h)
     shift = geom.get_horz_shift(p1[0], w)
 
     cv.drawContours(image, [cont], -1, (0, 0, 255), 3)
     cv.drawContours(image, [box], 0, (255, 0, 0), 2)
-    cv.line(image, p1, p2, (0, 255, 0), 3)
+    ip1 = *[int(_) for _ in p1],
+    ip2 = *[int(_) for _ in p2],
+    cv.line(image, ip1, ip2, (0, 255, 0), 3)
     msg_a = "Angle {0}".format(int(angle))
     msg_s = "Shift {0}".format(int(shift))
 

@@ -1,48 +1,22 @@
-## Picture settings
+# Picture settings
 
-# initial grayscale threshold
-threshold = 200
+# Initial grayscale threshold determines the minimum brightness level for an image pixel to be considered as white.
+threshold = 160
 
-# max grayscale threshold
-maxThreshold = 280
+# The max grayscale threshold defines the upper limit for the brightness level of a white pixel.
+maxThreshold = 220
 
-# min grayscale threshold
-minThreshold = 120
+# The min grayscale threshold defines the lower limit for the brightness level of a white pixel.
+minThreshold = 80
 
-# iterations to find balanced threshold
+# The number of iterations to find a balanced threshold.
 iterations = 10
 
-# min % of white in roi
-minWhite = 3
+# The minimum percentage of white pixels in a region of interest (ROI) for it to be considered valid.
+minWhite = 10
 
-# max % of white in roi
-maxWhite = 12
+# The maximum percentage of white pixels in a region of interest (ROI) for it to be considered valid.
+maxWhite = 20
 
-## Driving settings
-
-# line angle to make a turn
-turnAngle = 45
-
-# line shift to make an adjustment
-maxShift = 20
-
-# turning time of shift adjustment
-shiftStep = 0.125
-
-# turning time of turn
-turnStep = 0.25
-
-# time of straight run
-runStraight = 0.5
-
-# attempts to find the line if lost
-findTurnAttempts = 5
-
-# turn step to find the line if lost
-findTurnStep = 0.2
-
-# max # of iterations of the whole tracking
-maxSteps = 40
-
-# target brightness level
+# The target brightness level for the image, represented as a grayscale value between 0 and 255.
 brightness = 100
