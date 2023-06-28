@@ -34,8 +34,8 @@ def balance_pic(image):
     processed_image = None
     direction = 0
 
-    for _ in range(conf.iterations):
-        _, gray = cv.threshold(image, threshold, 255, 0)
+    for i in range(conf.iterations):
+        i, gray = cv.threshold(image, threshold, 255, 0)
         crop = Roi.crop_roi(gray)
 
         non_white = cv.countNonZero(crop)

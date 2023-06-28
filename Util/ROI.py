@@ -24,7 +24,6 @@ class ROI:
 
     def crop_roi(self, img):
         """
-
         :param img: input image to crop the region of interest on
         :return: filled roi image
         """
