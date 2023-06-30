@@ -28,7 +28,7 @@ def calc_line_length(p1, p2):
     return math.sqrt(dx * dx + dy * dy)
 
 
-def get_horz_shift_perc(x, w):
+def get_horz_shift(x, w):
     """
     Calculates the horizontal shift as a percentage based on a given value and width.
     :param x: The value representing the current horizontal position.
