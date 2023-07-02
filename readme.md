@@ -5,7 +5,7 @@ This project utilizes the [EduRob](https://github.com/IDiAL-IMSL/Edurob) and com
 a line-following robot, based on computer vision algorithms written in Python.
 
 Since the setup of several components on the Jetson Nano proved rather difficult, we created a docker container for it which is publicly
-available on docker hub: docker hub: [blssed/ros2robotik](https://hub.docker.com/repository/docker/blssed/ros2robotik/general)
+available on docker hub: [blssed/ros2robotik](https://hub.docker.com/repository/docker/blssed/ros2robotik/general)
 
 
 ## Hardware
